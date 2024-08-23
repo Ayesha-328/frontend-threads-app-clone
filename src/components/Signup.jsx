@@ -14,12 +14,14 @@ import {
   useColorModeValue,
   Link,
   useToast,
+  FormErrorMessage, 
 } from '@chakra-ui/react'
 import { useState } from 'react'
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons'
 import { useSetRecoilState } from 'recoil'
 import authScreenAtom from '../atoms/authAtom'
 import useShowToast from '../hooks/useShowToast'
+import userAtom from '../atoms/userAtom'
 
 export default function SignupCard() {
   const [showPassword, setShowPassword] = useState(false)
@@ -31,21 +33,39 @@ export default function SignupCard() {
     email:"",
     password: ""
   })
+  const setUser = useSetRecoilState(userAtom)
+  const [emailError, setEmailError] = useState('') 
   const apiUrl = import.meta.env.VITE_API_URL;
 
-  const handleChange=(e)=>{
-    const {name,value}= e.target;
+  const handleChange = (e) => {
+    const { name, value } = e.target;
     setInputs({
-        ...inputs,
-        [name]: value,     
-    })
+      ...inputs,
+      [name]: value,
+    });
+
+    if (name === 'email') {
+      validateEmail(value); 
+    }
   }
 
-  const toast = useToast()
+  const validateEmail = (email) => {
+    const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      setEmailError('Email is not valid');
+    } else {
+      setEmailError(''); 
+    }
+  }
 
   const handleSignup = async () => {
+    if (emailError) {
+      showToast("Error", "Please enter a valid email address", "error", 5000);
+      return;
+    }
+
     try {
-      const res = await fetch(`${apiUrl}/users/signup/`, {
+      const res = await fetch(`${apiUrl}/users/signup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -54,19 +74,18 @@ export default function SignupCard() {
       });
 
       const data = await res.json();
-      
 
-      if(data.error){
-        showToast("Error",data.error,"error",5000)
-        return
+      if (data.error) {
+        showToast("Error", data.error, "error", 5000);
+        return;
       }
 
-      localStorage.setItem("user-threads", JSON.stringify(data))
+      localStorage.setItem("user-threads", JSON.stringify(data));
+      setUser(data);
+      showToast("Successfully signed in", "", "success", 5000);
 
-      showToast("Successfully signed up","","success",5000)
-      
     } catch (error) {
-      showToast("Error",error.message,"error",5000)
+      console.error('Error fetching or parsing data:', error);
     }
   }
 
@@ -89,7 +108,7 @@ export default function SignupCard() {
           <Stack spacing={4}>
             <HStack>
               <Box>
-                <FormControl  isRequired>
+                <FormControl isRequired>
                   <FormLabel>Full Name</FormLabel>
                   <Input type="text" name='name' onChange={handleChange} value={inputs.name} />
                 </FormControl>
@@ -101,9 +120,12 @@ export default function SignupCard() {
                 </FormControl>
               </Box>
             </HStack>
-            <FormControl  isRequired>
+            <FormControl isRequired isInvalid={emailError}>
               <FormLabel>Email address</FormLabel>
               <Input type="email" name='email' onChange={handleChange} value={inputs.email} />
+              {emailError && (
+                <FormErrorMessage>{emailError}</FormErrorMessage>
+              )}
             </FormControl>
             <FormControl isRequired>
               <FormLabel>Password</FormLabel>
@@ -134,7 +156,7 @@ export default function SignupCard() {
             <Stack pt={6}>
               <Text align={'center'}>
                 Already a user? <Link
-                onClick={()=>setAuthScreenState("login")}
+                onClick={() => setAuthScreenState("login")}
                 color={useColorModeValue('gray.600', 'gray.700')}>Login</Link>
               </Text>
             </Stack>
@@ -144,3 +166,5 @@ export default function SignupCard() {
     </Flex>
   )
 }
+
+  
